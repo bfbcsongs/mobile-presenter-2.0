@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Line-up Maker</title>
 
+<!-- PWA Manifest & Theme Color -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#131b2e">
+<link rel="apple-touch-icon" href="/icon-192.png">
+
+<script>
+// Register Service Worker for offline launch capability
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Service Worker Registered!', reg.scope))
+      .catch(err => console.error('Service Worker Registration Failed:', err));
+  });
+}
+</script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
@@ -22,6 +38,17 @@ import {
     signInAnonymously,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyA6yuHjPrn3SVsXeJSnA9gzJ6tHw9oGdnA",
+    authDomain: "mobile-presenter.firebaseapp.com",
+    databaseURL: "https://mobile-presenter-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "mobile-presenter",
+    storageBucket: "mobile-presenter.firebasestorage.app",
+    messagingSenderId: "386403722965",
+    appId: "1:386403722965:web:6326d68a98c5d32e18a45c",
+    measurementId: "G-S4B3Z9E74B"
+};
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -52,8 +79,6 @@ window.mobilePresenterAuthReady = new Promise((resolve, reject) => {
 
         console.info("Mobile Presenter Firebase connected.");
         console.info("Device UID:", user.uid);
-
-        // Popup alert removed successfully.
 
         initializeCloudSync();
 
@@ -635,6 +660,11 @@ header {
             <button onclick="transposeGlobal(1)">+</button>
         </div>
 
+        <!-- GO LIVE TOGGLE BUTTON -->
+        <button id="live-toggle-btn" class="tool-btn" onclick="toggleLiveBroadcast()" style="background:#334155;color:#94a3b8;">
+            🔴 Offline
+        </button>
+
         <button class="tool-btn" onclick="openDrawer('drawer-setlist')">📋 Set List</button>
         <button class="tool-btn" onclick="openDrawer('drawer-songs')">🎵 Songs</button>
         <button class="tool-btn" onclick="openAddSongModal()">➕ Add Song</button>
@@ -750,7 +780,7 @@ header {
             <div class="edit-topbar">
                 <button class="btn btn-sm" onclick="goBackFromPlay()">⬅ Back</button>
                 <span id="play-song-title" style="font-weight:bold;color:var(--section);">Song Title</span>
-                <button class="btn btn-sm btn-primary" onclick="openPlayToEdit()">Edit</button>
+                <button id="play-edit-btn" class="btn btn-sm btn-primary" onclick="openPlayToEdit()">Edit</button>
             </div>
             <div class="play-workspace">
                 <div id="play-lyrics-box" class="output-box"></div>
@@ -874,7 +904,7 @@ header {
 <!-- QR -->
 <div id="qr-modal" class="drawer-overlay" onclick="closeModal('qr-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()" style="align-items:center;text-align:center;">
-        <h3 style="font-size:0.95rem;">Local Wi-Fi QR Code</h3>
+        <h3 style="font-size:0.95rem;">Viewer QR Code (Read-Only)</h3>
         <div id="qrcode" style="background:#fff;padding:10px;border-radius:8px;"></div>
         <p style="font-size:0.75rem;color:var(--text-muted);word-break:break-all;" id="wifi-link-text"></p>
         <button class="btn" onclick="closeModal('qr-modal')">Close</button>
@@ -940,6 +970,67 @@ let lineColorsDirty = false;
 const notesSharp = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const notesFlat = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
+/* LIVE BROADCAST CONTROLLER & SYNC */
+
+let isLiveBroadcasting = false;
+
+function toggleLiveBroadcast() {
+    isLiveBroadcasting = !isLiveBroadcasting;
+    const btn = document.getElementById("live-toggle-btn");
+
+    if (!btn) return;
+
+    if (isLiveBroadcasting) {
+        btn.style.background = "#dc2626"; // Red when active
+        btn.style.color = "#ffffff";
+        btn.innerHTML = "📡 LIVE";
+        
+        // Broadcast current song immediately upon turning Live ON
+        if (currentPlayingSong && currentPlayingSong.title) {
+            broadcastLiveSession(currentPlayingSong.title, 0, true);
+        }
+    } else {
+        btn.style.background = "#334155"; // Muted when off
+        btn.style.color = "#94a3b8";
+        btn.innerHTML = "🔴 Offline";
+    }
+}
+
+const localLiveChannel = typeof BroadcastChannel !== "undefined" 
+    ? new BroadcastChannel("lineup_maker_live_sync") 
+    : null;
+
+function broadcastLiveSession(songTitle, sectionIndex = 0, force = false) {
+    if (!isLiveBroadcasting && !force) return;
+
+    const payload = {
+        title: songTitle,
+        sectionIndex: sectionIndex,
+        timestamp: Date.now()
+    };
+
+    // 1. Local Wi-Fi / Offline Broadcast
+    try {
+        localStorage.setItem("lineUpMaker_liveSession", JSON.stringify(payload));
+        if (localLiveChannel) {
+            localLiveChannel.postMessage(payload);
+        }
+    } catch (err) {
+        console.error("Local sync error:", err);
+    }
+
+    // 2. Firebase Cloud Broadcast (Online)
+    if (window.mobilePresenterFirebase && navigator.onLine) {
+        const db = window.mobilePresenterFirebase.db;
+        const ref = window.mobilePresenterFirebase.ref;
+        const set = window.mobilePresenterFirebase.set;
+
+        set(ref(db, 'lineUpMaker/liveSession'), payload).catch(err => {
+            console.warn("Firebase offline, local sync active:", err);
+        });
+    }
+}
+
 /* LIVE FIREBASE SYNC */
 
 function initializeCloudSync() {
@@ -981,6 +1072,14 @@ function initializeCloudSync() {
 
     onValue(ref(db, 'lineUpMaker/songLineColors'), (snapshot) => {
         songLineColors = snapshot.val() || {};
+    });
+
+    // Sync Online Live Session
+    onValue(ref(db, 'lineUpMaker/liveSession'), (snapshot) => {
+        const liveData = snapshot.val();
+        if (liveData) {
+            handleIncomingLiveSync(liveData);
+        }
     });
 }
 
@@ -1647,10 +1746,12 @@ function appendColoredText(parent, text, absoluteStart) {
 /* SONG SECTION JUMPER */
 
 function detectSongSections(content) {
+    if (!content) return [];
     const sections = [];
 
+    // Detects Intro, Verse (1, 2, 3), Pre, Pre-Chorus, Chorus (1, 2, 3), Bridge, Instrumental, and Outro
     const markerPattern =
-        /^[ \t]*#(Intro|Verse(?:[ \t]*\d+)?|Chorus|Bridge|Outro)[ \t]*$/gim;
+        /^[ \t]*\[(Intro|Verse(?:[ \t]*\d+)?|Pre-?Chorus|Pre|Chorus(?:[ \t]*\d+)?|Bridge|Instrumental|Outro)\][ \t]*$/gim;
 
     let match;
 
@@ -1665,7 +1766,7 @@ function detectSongSections(content) {
     return sections;
 }
 
-function jumpToSongSection(index) {
+function jumpToSongSection(index, shouldBroadcast = true) {
     const box = document.getElementById("play-lyrics-box");
     const jumper = document.getElementById("floating-jumper-bar");
 
@@ -1689,6 +1790,11 @@ function jumpToSongSection(index) {
         behavior: "smooth",
         block: "center"
     });
+
+    // Broadcast section change to connected devices (Offline + Online)
+    if (shouldBroadcast && typeof currentPlayingSong !== "undefined" && currentPlayingSong.title) {
+        broadcastLiveSession(currentPlayingSong.title, index);
+    }
 }
 
 /* SONG DISPLAY */
@@ -1702,12 +1808,17 @@ function renderSongContent(box, jumper, isPlayMode) {
         jumper.innerHTML = "";
     }
 
+    if (!currentPlayingSong || !currentPlayingSong.content) {
+        box.innerHTML = "<div style='text-align: center; color: #888; padding: 20px;'>No song loaded.</div>";
+        return;
+    }
+
     applySongFontSize(
         currentPlayingSong.fontSize ||
         getSongFontSize(currentPlayingSong.title)
     );
 
-    const originalContent = currentPlayingSong.content || "";
+    const originalContent = currentPlayingSong.content;
 
     const content = isPlayMode
         ? transposeSongContent(originalContent, globalSemitones)
@@ -1727,18 +1838,11 @@ function renderSongContent(box, jumper, isPlayMode) {
         return;
     }
 
-    let previousPosition = 0;
+    if (sections[0].start > 0) {
+        appendColoredText(box, content.slice(0, sections[0].start), 0);
+    }
 
     sections.forEach((section, index) => {
-
-        if (section.start > previousPosition) {
-            appendColoredText(
-                box,
-                content.slice(previousPosition, section.start),
-                previousPosition
-            );
-        }
-
         const nextPosition = index + 1 < sections.length
             ? sections[index + 1].start
             : content.length;
@@ -1746,10 +1850,12 @@ function renderSongContent(box, jumper, isPlayMode) {
         const block = document.createElement("span");
         block.className = "jumper-section-block";
 
+        const sliceStart = section.markerEnd;
+
         appendColoredText(
             block,
-            content.slice(section.start, nextPosition),
-            section.start
+            content.slice(sliceStart, nextPosition),
+            sliceStart
         );
 
         box.appendChild(block);
@@ -1757,11 +1863,9 @@ function renderSongContent(box, jumper, isPlayMode) {
         const button = document.createElement("button");
         button.className = "jumper-chip";
         button.textContent = section.label;
-        button.onclick = () => jumpToSongSection(index);
+        button.onclick = () => jumpToSongSection(index, true);
 
         jumper.appendChild(button);
-
-        previousPosition = nextPosition;
     });
 
     box.scrollTop = 0;
@@ -1914,12 +2018,10 @@ function openShowSetListDrawer(sl) {
         contentBox.innerHTML = '<span class="empty-message">No songs in this line-up.</span>';
     }
 
-    // Configure Import Button
     const importBtn = document.getElementById("show-import-btn");
     importBtn.onclick = () => {
         try {
             let localCache = JSON.parse(localStorage.getItem("localWifiSetLists") || "[]");
-            // Avoid exact duplicates
             const exists = localCache.some(item => item.worshipLeader === sl.worshipLeader && item.createdAt === sl.createdAt);
             if (!exists) {
                 localCache.push(sl);
@@ -1934,7 +2036,6 @@ function openShowSetListDrawer(sl) {
         }
     };
 
-    // Configure Delete Local Button (Keeps Firebase Safe)
     const deleteLocalBtn = document.getElementById("show-delete-local-btn");
     deleteLocalBtn.onclick = () => {
         try {
@@ -2066,23 +2167,9 @@ function playLineUpSongAt(index) {
         return;
     }
 
-    currentPlayingSong = {
-        title: title,
-        content: songsDatabase[title],
-        fontSize: getSongFontSize(title)
-    };
-
-    currentLineColors = {
-        ...(songLineColors[getSongKey(title)] || {})
-    };
-
-    lineColorsDirty = false;
-
+    playSong(title, true);
     document.getElementById("play-song-title").textContent =
         category + " — " + title;
-
-    renderPlayScreen();
-    switchView("play");
 }
 
 /* SONG DATABASE */
@@ -2119,7 +2206,7 @@ function renderSongsDatabase() {
 
         name.textContent = "🎵 " + title;
         name.onclick = () => {
-            playSong(title);
+            playSong(title, true);
             closeDrawer("drawer-songs");
         };
 
@@ -2237,9 +2324,9 @@ async function saveSongFromEditor() {
 
     // 🔒 ADMIN PASSKEY CHECK
     const passkey = prompt("Enter Admin Passkey to Save:");
-    if (passkey === null) return; // User tapped Cancel
+    if (passkey === null) return;
 
-    if (passkey !== "1234") { // 🔑 Change "1234" to your desired passkey
+    if (passkey !== "1234") {
         alert("Incorrect passkey. Save denied.");
         return;
     }
@@ -2247,7 +2334,6 @@ async function saveSongFromEditor() {
     const db = window.mobilePresenterFirebase.db;
     const ref = window.mobilePresenterFirebase.ref;
     const set = window.mobilePresenterFirebase.set;
-
 
     try {
         await set(ref(db, 'lineUpMaker/songsDatabase/' + title), content);
@@ -2261,13 +2347,7 @@ async function saveSongFromEditor() {
         songsDatabase[title] = content;
         alert("Song saved successfully!");
 
-        currentPlayingSong = {
-            title: title,
-            content: content,
-            fontSize: getSongFontSize(title)
-        };
-
-        playSong(title);
+        playSong(title, true);
     } catch (err) {
         console.error(err);
         alert("Failed to save song: " + err.message);
@@ -2426,7 +2506,7 @@ async function confirmSaveActiveLineUp() {
 
 /* PLAY SONG */
 
-function playSong(title) {
+function playSong(title, shouldBroadcast = true) {
     if (!(title in songsDatabase)) {
         return alert("Song not found.");
     }
@@ -2447,21 +2527,42 @@ function playSong(title) {
 
     renderPlayScreen();
     switchView("play");
+
+    if (shouldBroadcast) {
+        broadcastLiveSession(title, 0);
+    }
+}
+
+/* RECEIVE LIVE COMMANDS (INCOMING SYNC LISTENERS) */
+
+function handleIncomingLiveSync(liveData) {
+    if (!liveData || !liveData.title) return;
+
+    if (liveData.title !== currentPlayingSong.title) {
+        if (songsDatabase[liveData.title]) {
+            playSong(liveData.title, false);
+        }
+    }
+
+    if (typeof liveData.sectionIndex === 'number' && document.getElementById("view-play").classList.contains("active")) {
+        jumpToSongSection(liveData.sectionIndex, false);
+    }
 }
 
 /* QR */
 
 function openQRModal() {
-    const localUrl = window.location.href;
+    const baseUrl = window.location.origin + window.location.pathname;
+    const viewerUrl = baseUrl + "?view=readonly";
 
-    document.getElementById("wifi-link-text").textContent = localUrl;
+    document.getElementById("wifi-link-text").textContent = viewerUrl;
 
     const qr = document.getElementById("qrcode");
     qr.innerHTML = "";
 
     if (typeof QRCode !== "undefined") {
         new QRCode(qr, {
-            text: localUrl,
+            text: viewerUrl,
             width: 150,
             height: 150
         });
@@ -2510,9 +2611,27 @@ async function confirmAddCategory() {
 /* INITIALIZE */
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Check if opened via Read-Only QR Code Viewer link
+    const urlParams = new URLSearchParams(window.location.search);
+    const isReadOnlyViewer = urlParams.get("view") === "readonly";
+
+    if (isReadOnlyViewer) {
+        // Hide operator toolbar tools and edit buttons for viewers
+        const toolbar = document.querySelector(".toolbar-tools");
+        if (toolbar) toolbar.style.display = "none";
+
+        const editBtn = document.getElementById("play-edit-btn");
+        if (editBtn) editBtn.style.display = "none";
+        
+        const brandTitle = document.querySelector(".brand-title");
+        if (brandTitle) brandTitle.textContent = "Line-up Maker (Viewer)";
+
+        // Jump straight to play screen for viewers
+        switchView("play", false);
+    }
+
     renderNewLineUpForm();
     renderSetList();
-
     renderSongsDatabase();
 
     applySongFontSize(DEFAULT_SONG_FONT_SIZE);
@@ -2521,6 +2640,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     installBrowserBackGuard();
 
+    // Listen via BroadcastChannel (Offline Local Network)
+    if (localLiveChannel) {
+        localLiveChannel.onmessage = (event) => {
+            handleIncomingLiveSync(event.data);
+        };
+    }
+
+    // Listen via Storage Events (Offline Fallback for same origin)
+    window.addEventListener("storage", (event) => {
+        if (event.key === "lineUpMaker_liveSession" && event.newValue) {
+            try {
+                const data = JSON.parse(event.newValue);
+                handleIncomingLiveSync(data);
+            } catch (e) {}
+        }
+    });
+
     document.getElementById("new-song-title-input")
         .addEventListener("keydown", event => {
             if (event.key === "Enter") {
@@ -2528,7 +2664,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-    console.info("Line-up Maker cloud edition loaded.");
+    console.info("Line-up Maker cloud edition loaded. Viewer mode:", isReadOnlyViewer);
 });
 </script>
 
