@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Line-up Maker</title>
+<title>BFBC LINE-UP</title>
 
 <!-- PWA Manifest & Theme Color -->
 <link rel="manifest" href="/manifest.json">
@@ -397,6 +397,7 @@ header {
     white-space: pre-wrap;
     overflow-wrap: break-word;
     -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
 }
 
 #editor-textarea::placeholder {
@@ -425,11 +426,13 @@ header {
     text-align: center;
     white-space: pre-wrap;
     overflow-wrap: break-word;
+    box-sizing: border-box;
 }
 
 #editor-textarea.color-mirror {
     color: transparent !important;
-    caret-color: var(--text-main);
+    caret-color: #f8fafc !important;
+    -webkit-text-fill-color: transparent;
 }
 
 #editor-color-overlay.active {
@@ -651,7 +654,7 @@ header {
 <body>
 
 <header>
-    <span class="brand-title">Line-up Maker</span>
+    <span class="brand-title">BFBC LINE-UP</span>
 
     <div class="toolbar-tools">
         <div class="trans-badge">
@@ -970,6 +973,19 @@ let lineColorsDirty = false;
 const notesSharp = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const notesFlat = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 
+/* PASSKEY HELPER */
+
+function checkAdminPasskey(actionName = "Action") {
+    const passkey = prompt(`Enter Admin Passkey to ${actionName}:`);
+    if (passkey === null) return false;
+
+    if (passkey !== "1234") {
+        alert("Incorrect passkey. Access denied.");
+        return false;
+    }
+    return true;
+}
+
 /* LIVE BROADCAST CONTROLLER & SYNC */
 
 let isLiveBroadcasting = false;
@@ -1202,7 +1218,7 @@ function goBack(fromSystemBack = false) {
     }
 
     const confirmed = window.confirm(
-        "Are you sure you want to leave Line-up Maker?"
+        "Are you sure you want to leave BFBC LINE-UP?"
     );
 
     if (!confirmed) return;
@@ -1749,7 +1765,6 @@ function detectSongSections(content) {
     if (!content) return [];
     const sections = [];
 
-    // Detects Intro, Verse (1, 2, 3), Pre, Pre-Chorus, Chorus (1, 2, 3), Bridge, Instrumental, and Outro
     const markerPattern =
         /^[ \t]*\[(Intro|Verse(?:[ \t]*\d+)?|Pre-?Chorus|Pre|Chorus(?:[ \t]*\d+)?|Bridge|Instrumental|Outro)\][ \t]*$/gim;
 
@@ -1791,7 +1806,6 @@ function jumpToSongSection(index, shouldBroadcast = true) {
         block: "center"
     });
 
-    // Broadcast section change to connected devices (Offline + Online)
     if (shouldBroadcast && typeof currentPlayingSong !== "undefined" && currentPlayingSong.title) {
         broadcastLiveSession(currentPlayingSong.title, index);
     }
@@ -1980,6 +1994,9 @@ function renderSetList() {
         del.textContent = "Delete";
 
         del.onclick = async () => {
+            // 🔒 REQUIRE PASSKEY FOR DELETING SETLIST
+            if (!checkAdminPasskey("Delete Set List")) return;
+
             if (confirm("Delete this set list from Firebase?")) {
                 const db = window.mobilePresenterFirebase.db;
                 const ref = window.mobilePresenterFirebase.ref;
@@ -2038,6 +2055,9 @@ function openShowSetListDrawer(sl) {
 
     const deleteLocalBtn = document.getElementById("show-delete-local-btn");
     deleteLocalBtn.onclick = () => {
+        // 🔒 REQUIRE PASSKEY FOR DELETING LOCAL SETLIST
+        if (!checkAdminPasskey("Delete Local Set List")) return;
+
         try {
             let localCache = JSON.parse(localStorage.getItem("localWifiSetLists") || "[]");
             const initialLength = localCache.length;
@@ -2322,13 +2342,9 @@ async function saveSongFromEditor() {
         return;
     }
 
-    // 🔒 ADMIN PASSKEY CHECK
-    const passkey = prompt("Enter Admin Passkey to Save:");
-    if (passkey === null) return;
-
-    if (passkey !== "1234") {
-        alert("Incorrect passkey. Save denied.");
-        return;
+    // 🔒 REQUIRE PASSKEY ONLY WHEN SAVING EDITS TO AN EXISTING SONG
+    if (!isNewSongDraft) {
+        if (!checkAdminPasskey("Save Song Edits")) return;
     }
 
     const db = window.mobilePresenterFirebase.db;
@@ -2360,6 +2376,9 @@ window.saveSongFromEditor = saveSongFromEditor;
 async function deleteCurrentSong() {
     const title = currentPlayingSong.title;
     if (!title) return;
+
+    // 🔒 REQUIRE PASSKEY FOR DELETING SONG
+    if (!checkAdminPasskey("Delete Song")) return;
 
     if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
 
@@ -2458,6 +2477,7 @@ async function saveNewLineUpFromForm() {
     const ref = window.mobilePresenterFirebase.ref;
     const push = window.mobilePresenterFirebase.push;
 
+    // 🔓 NO PASSKEY REQUIRED FOR SAVING NEW LINE-UP
     try {
         await push(ref(db, 'lineUpMaker/setLists'), newList);
         alert("Line-up saved successfully!");
@@ -2624,7 +2644,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (editBtn) editBtn.style.display = "none";
         
         const brandTitle = document.querySelector(".brand-title");
-        if (brandTitle) brandTitle.textContent = "Line-up Maker (Viewer)";
+        if (brandTitle) brandTitle.textContent = "BFBC LINE-UP (Viewer)";
 
         // Jump straight to play screen for viewers
         switchView("play", false);
@@ -2664,7 +2684,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-    console.info("Line-up Maker cloud edition loaded. Viewer mode:", isReadOnlyViewer);
+    console.info("BFBC LINE-UP cloud edition loaded. Viewer mode:", isReadOnlyViewer);
 });
 </script>
 
