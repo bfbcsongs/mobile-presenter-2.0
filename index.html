@@ -396,8 +396,10 @@ header {
     text-align: center;
     white-space: pre-wrap;
     overflow-wrap: break-word;
+    overflow-y: auto !important; /* 🎯 Dito naaayos ang pag-scroll */
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
+    z-index: 1;
 }
 
 #editor-textarea::placeholder {
@@ -413,11 +415,12 @@ header {
     inset: 0;
     max-width: 800px;
     width: 100%;
+    height: 100%;
     margin: 0 auto;
     padding: 20px 16px;
     overflow-x: hidden;
-    overflow-y: hidden;
-    pointer-events: none;
+    overflow-y: auto;
+    pointer-events: none; /* 🎯 Hahayaan ang daliri na mag-scroll sa textarea */
     display: block;
     z-index: 2;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -427,6 +430,7 @@ header {
     white-space: pre-wrap;
     overflow-wrap: break-word;
     box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
 }
 
 #editor-textarea.color-mirror {
@@ -1168,16 +1172,30 @@ function switchView(viewName, pushHistory = true) {
 function goBack(fromSystemBack = false) {
     closeLineColorTool();
 
+    // 🎯 FIX: Kung ang nakasalang sa screen ay Play View at may Categories modal, ibalik sa Category picker!
+    const playView = document.getElementById("view-play");
+    const categoryModal = document.getElementById("category-picker-modal");
+    
+    if (playView && playView.classList.contains("active") && categoryModal) {
+        switchView("home", false);
+        categoryModal.style.display = "flex";
+        return;
+    }
+
     if (viewHistory.length > 1) {
         viewHistory.pop();
         switchView(viewHistory[viewHistory.length - 1], false);
         return;
     }
 
-    const confirmed = window.confirm("Are you sure you want to leave BFBC LINE-UP?");
+    const confirmed = window.confirm(
+        "Are you sure you want to leave BFBC LINE-UP?"
+    );
+
     if (!confirmed) return;
 
     allowBrowserExit = true;
+
     if (fromSystemBack) {
         window.history.back();
     } else {
@@ -1490,10 +1508,27 @@ function applyLineColor(index) {
 function initializeColorEditor() {
     const editor = document.getElementById("editor-textarea");
     const overlay = document.getElementById("editor-color-overlay");
+
     if (!editor || !overlay) return;
 
     editor.classList.add("color-mirror");
-    editor.addEventListener("input", renderColorOverlay);
+
+    editor.addEventListener("input", () => {
+        renderColorOverlay();
+    });
+
+    // 🎯 SMOOTH SCROLL SYNC
+    editor.addEventListener("scroll", () => {
+        if (!lineColorToolOpen) {
+            overlay.scrollTop = editor.scrollTop;
+        }
+    });
+
+    overlay.addEventListener("scroll", () => {
+        if (lineColorToolOpen) {
+            editor.scrollTop = overlay.scrollTop;
+        }
+    });
 }
 
 function appendColoredText(parent, text, absoluteStart) {
@@ -1509,19 +1544,21 @@ function appendColoredText(parent, text, absoluteStart) {
     });
 }
 
-/* SONG SECTION JUMPER */
+/* SONG SECTION JUMPER (STRICT NUMBERED 1-10 WITH LABELS) */
 
 function detectSongSections(content) {
     if (!content) return [];
     const sections = [];
-    const markerPattern = /^[ \t]*\[(Intro|Verse(?:[ \t]*\d+)?|Pre-?Chorus|Pre|Chorus(?:[ \t]*\d+)?|Bridge|Instrumental|Outro)\][ \t]*$/gim;
+    
+    // Strict pattern para sa Intro, Verse, Pre-Chorus, Bridge, Instrumental, Outro na may numbers 1-10
+    const markerPattern = /^[ \t]*\[((?:Intro|Verse|Pre-?Chorus|Bridge|Instrumental|Outro)[ \t]+(?:[1-9]|10))\][ \t]*$/gim;
     let match;
 
     while ((match = markerPattern.exec(content)) !== null) {
         sections.push({
             start: match.index,
             markerEnd: match.index + match[0].length,
-            label: match[1].trim().toUpperCase()
+            label: match[1].trim().toUpperCase() // Sisiguraduhing lumalabas ang buong label (hal. VERSE 1)
         });
     }
     return sections;
