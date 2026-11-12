@@ -11,7 +11,6 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 
 <script>
-// Register Service Worker for offline launch capability
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -72,16 +71,10 @@ window.mobilePresenterAuthReady = new Promise((resolve, reject) => {
 
     const unsubscribe = onAuthStateChanged(auth, user => {
         if (!user) return;
-
         unsubscribe();
-
         window.mobilePresenterUID = user.uid;
-
         console.info("Mobile Presenter Firebase connected.");
-        console.info("Device UID:", user.uid);
-
         initializeCloudSync();
-
         resolve(user);
     });
 });
@@ -328,6 +321,7 @@ header {
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    padding: 4px 6px;
 }
 
 .edit-topbar {
@@ -339,6 +333,7 @@ header {
     border-bottom: 1px solid var(--panel-border);
     flex-shrink: 0;
     gap: 6px;
+    border-radius: 8px 8px 0 0;
 }
 
 .editor-workspace,
@@ -349,42 +344,63 @@ header {
     overflow: hidden;
     min-height: 0;
     justify-content: center;
+    background: #060911;
+    padding-bottom: 4px;
 }
 
-/* SONG DISPLAY */
+/* 🎯 STRICT WYSIWYG INDEPENDENT SCREEN WRAPPER */
+.independent-screen-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    height: 100%;
+    background: #0f172a;
+    border: 2px solid #38bdf8;
+    border-radius: 0 0 10px 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+
+/* SONG DISPLAY — SCROLLABLE SA LOOB NG BOX NA MAY UNIFORM FONT ENGINE */
 
 .output-box {
     flex: 1;
-    max-width: 800px;
-    padding: 20px 16px;
+    width: 100%;
+    height: 100%;
+    padding: 14px;
     overflow-y: auto;
     overflow-x: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: var(--song-font-size);
-    line-height: 1.8;
+    line-height: 1.7;
     scroll-behavior: smooth;
     min-height: 0;
     -webkit-overflow-scrolling: touch;
-    text-align: center;
+    text-align: left;
     white-space: pre-wrap;
     overflow-wrap: break-word;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 /* SONG EDITOR */
 
 #song-editor-workspace {
     position: relative;
+    width: 100%;
+    flex: 1;
+    display: flex;
 }
 
 #editor-textarea {
     display: block;
     flex: 1;
     width: 100%;
-    max-width: 800px;
     height: 100%;
     min-height: 0;
-    margin: 0 auto;
-    padding: 20px 16px;
+    padding: 14px;
     background: transparent;
     color: var(--text-main);
     border: none;
@@ -392,20 +408,22 @@ header {
     resize: none;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: var(--song-font-size);
-    line-height: 1.8;
-    text-align: center;
+    line-height: 1.7;
+    text-align: left;
     white-space: pre-wrap;
     overflow-wrap: break-word;
-    overflow-y: auto !important; /* 🎯 Dito naaayos ang pag-scroll */
+    overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
     z-index: 1;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 #editor-textarea::placeholder {
     color: var(--text-muted);
     opacity: 0.8;
-    text-align: center;
+    text-align: left;
 }
 
 /* COLOR OVERLAY */
@@ -413,24 +431,24 @@ header {
 #editor-color-overlay {
     position: absolute;
     inset: 0;
-    max-width: 800px;
     width: 100%;
     height: 100%;
-    margin: 0 auto;
-    padding: 20px 16px;
+    padding: 14px;
     overflow-x: hidden;
     overflow-y: auto;
-    pointer-events: none; /* 🎯 Hahayaan ang daliri na mag-scroll sa textarea */
+    pointer-events: none;
     display: block;
     z-index: 2;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: var(--song-font-size);
-    line-height: 1.8;
-    text-align: center;
+    line-height: 1.7;
+    text-align: left;
     white-space: pre-wrap;
     overflow-wrap: break-word;
     box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 #editor-textarea.color-mirror {
@@ -457,9 +475,10 @@ header {
     display: block;
     white-space: pre-wrap;
     overflow-wrap: break-word;
-    min-height: 1.8em;
+    min-height: 1.7em;
     cursor: pointer;
     touch-action: pan-y;
+    text-align: left;
 }
 
 .editor-color-line.green {
@@ -639,18 +658,6 @@ header {
     .tool-btn { font-size: 0.65rem; padding: 4px 6px; }
     .play-right-bar { right: 4px; }
     .jumper-chip { width: 62px; min-height: 36px; font-size: 0.65rem; }
-
-    .output-box {
-        padding: 16px 10px;
-    }
-
-    #editor-textarea {
-        padding: 16px 10px;
-    }
-
-    #editor-color-overlay {
-        padding: 16px 10px;
-    }
 }
 </style>
 </head>
@@ -667,7 +674,6 @@ header {
             <button onclick="transposeGlobal(1)">+</button>
         </div>
 
-        <!-- GO LIVE TOGGLE BUTTON -->
         <button id="live-toggle-btn" class="tool-btn" onclick="toggleLiveBroadcast()" style="background:#334155;color:#94a3b8;">
             🔴 Offline
         </button>
@@ -703,7 +709,9 @@ header {
                 </div>
             </div>
             <div class="editor-workspace">
-                <div id="edit-lyrics-box" class="output-box"></div>
+                <div class="independent-screen-wrapper">
+                    <div id="edit-lyrics-box" class="output-box"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -750,33 +758,35 @@ header {
                 </div>
             </div>
 
-            <div class="editor-workspace" id="song-editor-workspace">
+            <div class="editor-workspace">
+                <div class="independent-screen-wrapper" id="song-editor-workspace">
 
-                <textarea id="editor-textarea"
-                    placeholder="Type or paste lyrics and chords here..."></textarea>
+                    <textarea id="editor-textarea"
+                        placeholder="Type or paste lyrics and chords here..."></textarea>
 
-                <div id="editor-color-overlay"></div>
+                    <div id="editor-color-overlay"></div>
 
-                <div id="line-color-toolbar" class="line-color-toolbar">
+                    <div id="line-color-toolbar" class="line-color-toolbar">
 
-                    <button class="line-color-btn"
-                        id="green-line-btn"
-                        style="color:#4ade80;"
-                        onclick="selectLineColor('green')"
-                        title="Green">
-                        🟢
-                    </button>
+                        <button class="line-color-btn"
+                            id="green-line-btn"
+                            style="color:#4ade80;"
+                            onclick="selectLineColor('green')"
+                            title="Green">
+                            🟢
+                        </button>
 
-                    <button class="line-color-btn"
-                        id="white-line-btn"
-                        style="color:#ffffff;"
-                        onclick="selectLineColor('white')"
-                        title="White">
-                        ⚪
-                    </button>
+                        <button class="line-color-btn"
+                            id="white-line-btn"
+                            style="color:#ffffff;"
+                            onclick="selectLineColor('white')"
+                            title="White">
+                            ⚪
+                        </button>
+
+                    </div>
 
                 </div>
-
             </div>
         </div>
     </div>
@@ -790,25 +800,22 @@ header {
                 <button id="play-edit-btn" class="btn btn-sm btn-primary" onclick="openPlayToEdit()">Edit</button>
             </div>
             <div class="play-workspace">
-                <div id="play-lyrics-box" class="output-box"></div>
-                <div id="floating-jumper-bar" class="play-right-bar"></div>
+                <div class="independent-screen-wrapper">
+                    <div id="play-lyrics-box" class="output-box"></div>
+                    <div id="floating-jumper-bar" class="play-right-bar"></div>
+                </div>
             </div>
         </div>
     </div>
 
 </div>
 
-<!-- ADD SONG TITLE MODAL -->
-<div id="add-song-title-modal" class="drawer-overlay"
-     onclick="closeAddSongTitleModal()">
+<!-- MODALS & DRAWERS -->
+<div id="add-song-title-modal" class="drawer-overlay" onclick="closeAddSongTitleModal()">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="font-size:0.95rem;color:var(--accent);">Add Song</h3>
-
-        <input type="text" id="new-song-title-input"
-            placeholder="Enter Song Title..."
-            autocomplete="off"
+        <input type="text" id="new-song-title-input" placeholder="Enter Song Title..." autocomplete="off"
             style="background:#0f172a;border:1px solid #334155;color:#fff;padding:10px;border-radius:6px;font-size:0.9rem;width:100%;">
-
         <div style="display:flex;gap:8px;">
             <button class="btn" style="flex:1;" onclick="closeAddSongTitleModal()">Back</button>
             <button class="btn btn-primary" style="flex:1;" onclick="confirmAddSongTitle()">OK</button>
@@ -816,7 +823,6 @@ header {
     </div>
 </div>
 
-<!-- SET LIST DRAWER -->
 <div id="drawer-setlist" class="drawer-overlay" onclick="closeDrawer('drawer-setlist')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="color:var(--success);font-size:0.95rem;">Set List</h3>
@@ -825,7 +831,6 @@ header {
     </div>
 </div>
 
-<!-- SHOW INDIVIDUAL SET LIST DRAWER -->
 <div id="drawer-show-setlist" class="drawer-overlay" onclick="closeDrawer('drawer-show-setlist')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 id="show-setlist-title" style="color:var(--section);font-size:0.95rem;">Set List Details</h3>
@@ -834,7 +839,6 @@ header {
     </div>
 </div>
 
-<!-- SONG DATABASE -->
 <div id="drawer-songs" class="drawer-overlay" onclick="closeDrawer('drawer-songs')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="color:var(--accent);font-size:0.95rem;">Song Database (Cloud)</h3>
@@ -845,7 +849,6 @@ header {
     </div>
 </div>
 
-<!-- NEW LINEUP -->
 <div id="drawer-newlineup" class="drawer-overlay" onclick="closeDrawer('drawer-newlineup')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="color:var(--highlight);font-size:0.95rem;">Create New Line-up</h3>
@@ -860,7 +863,6 @@ header {
     </div>
 </div>
 
-<!-- SELECT SONG -->
 <div id="select-song-modal" class="drawer-overlay" onclick="closeModal('select-song-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="font-size:0.95rem;">Select Song for <span id="select-modal-cat" style="color:var(--section);"></span></h3>
@@ -869,7 +871,6 @@ header {
     </div>
 </div>
 
-<!-- SET LIST CONFIRMATION -->
 <div id="confirm-lineup-modal" class="drawer-overlay">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="color:var(--success);font-size:0.95rem;">Load Line-up?</h3>
@@ -881,19 +882,15 @@ header {
     </div>
 </div>
 
-<!-- CATEGORY-FIRST PLAYBACK PICKER -->
-<div id="category-picker-modal" class="drawer-overlay">
+<div id="category-picker-modal" class="drawer-overlay" onclick="closeModal('category-picker-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="color:var(--section);font-size:0.95rem;">Select Song Category</h3>
-        <p style="color:var(--text-muted);font-size:0.75rem;">
-            Choose a category to begin playback.
-        </p>
+        <p style="color:var(--text-muted);font-size:0.75rem;">Choose a category to begin playback.</p>
         <div id="category-picker-list" class="category-picker-list"></div>
         <button class="btn" onclick="closeModal('category-picker-modal')">Cancel</button>
     </div>
 </div>
 
-<!-- SAVE ACTIVE LINEUP -->
 <div id="save-lineup-modal" class="drawer-overlay" onclick="closeModal('save-lineup-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="color:var(--success);font-size:0.95rem;">Save Active Line-up</h3>
@@ -904,7 +901,6 @@ header {
     </div>
 </div>
 
-<!-- QR -->
 <div id="qr-modal" class="drawer-overlay" onclick="closeModal('qr-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()" style="align-items:center;text-align:center;">
         <h3 style="font-size:0.95rem;">Viewer QR Code (Read-Only)</h3>
@@ -914,7 +910,6 @@ header {
     </div>
 </div>
 
-<!-- ADD CATEGORY -->
 <div id="add-cat-modal" class="drawer-overlay" onclick="closeModal('add-cat-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="font-size:0.95rem;">Add Custom Category</h3>
@@ -930,11 +925,11 @@ header {
 
 let categories = ["Opening", "Joyful", "Solemn", "Offering", "Closing"];
 let activeLineUp = {};
-let songsDatabase = {}; // Master Songs fetched from Firebase
+let songsDatabase = {}; 
 let songKeys = {};
-let setLists = [];     // Stored ONLY locally in localStorage
+let setLists = [];
 
-/* ZOOM */
+/* ZOOM & CLOUD SYNC */
 
 let songZoomLevels = {};
 let currentSongFontSize = 16;
@@ -946,20 +941,16 @@ const MAX_SONG_FONT_SIZE = 40;
 let globalSemitones = 0;
 let activeEditingKey = null;
 let currentPlayingSong = { title: "", content: "", fontSize: 16 };
-let viewHistory = ["home"];
-let pendingSetListIndex = null;
 
-/* BACK NAVIGATION CONTROL */
+/* UNIFIED NAVIGATION STACK (Tracks both views & overlays in order) */
+let navStack = [{ type: "view", id: "home" }];
+let pendingSetListIndex = null;
 
 let allowBrowserExit = false;
 let browserBackGuardInstalled = false;
 
-/* ADD SONG */
-
 let newSongTitle = "";
 let isNewSongDraft = false;
-
-/* LINE COLORS */
 
 let songLineColors = {};
 let currentLineColors = {};
@@ -969,8 +960,6 @@ let lineColorsDirty = false;
 
 const notesSharp = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const notesFlat = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-
-/* PASSKEY HELPER FOR FIREBASE EDITING */
 
 function checkAdminPasskey(actionName = "Action") {
     const passkey = prompt(`Enter Admin Passkey to ${actionName}:`);
@@ -982,8 +971,6 @@ function checkAdminPasskey(actionName = "Action") {
     }
     return true;
 }
-
-/* LIVE BROADCAST CONTROLLER & SYNC */
 
 let isLiveBroadcasting = false;
 
@@ -1041,18 +1028,13 @@ function broadcastLiveSession(songTitle, sectionIndex = 0, force = false) {
     }
 }
 
-/* FIREBASE CLOUD SYNC FOR MASTER SONGS */
-
 function initializeCloudSync() {
     const db = window.mobilePresenterFirebase.db;
     const ref = window.mobilePresenterFirebase.ref;
     const onValue = window.mobilePresenterFirebase.onValue;
 
-    // 1. Sync Songs Database from Firebase Cloud
     onValue(ref(db, 'lineUpMaker/songsDatabase'), (snapshot) => {
         songsDatabase = snapshot.val() || {};
-        
-        // Cache to local storage as fallback for offline use
         try {
             localStorage.setItem("offline_cached_songs", JSON.stringify(songsDatabase));
         } catch(e) {}
@@ -1061,7 +1043,6 @@ function initializeCloudSync() {
         renderNewLineUpForm();
     });
 
-    // 2. Sync Categories from Firebase
     onValue(ref(db, 'lineUpMaker/categories'), (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -1070,12 +1051,20 @@ function initializeCloudSync() {
         renderNewLineUpForm();
     });
 
-    // 3. Sync Line Colors
     onValue(ref(db, 'lineUpMaker/songLineColors'), (snapshot) => {
         songLineColors = snapshot.val() || {};
     });
 
-    // 4. Sync Live Session
+    onValue(ref(db, 'lineUpMaker/songZoomLevels'), (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+            songZoomLevels = val;
+            try {
+                localStorage.setItem("offline_cached_zooms", JSON.stringify(songZoomLevels));
+            } catch(e) {}
+        }
+    });
+
     onValue(ref(db, 'lineUpMaker/liveSession'), (snapshot) => {
         const liveData = snapshot.val();
         if (liveData) {
@@ -1083,8 +1072,6 @@ function initializeCloudSync() {
         }
     });
 }
-
-/* HELPERS */
 
 function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, char => ({
@@ -1104,8 +1091,6 @@ function getSongKey(title) {
     return songKeys[title] || safeKey(title);
 }
 
-/* ZOOM FUNCTIONS */
-
 function clampSongFontSize(size) {
     return Math.max(
         MIN_SONG_FONT_SIZE,
@@ -1124,12 +1109,33 @@ function getSongFontSize(title) {
     return clampSongFontSize(savedSize);
 }
 
-function applySongFontSize(size) {
+function applySongFontSize(size, autoSave = true) {
     currentSongFontSize = clampSongFontSize(size);
     document.documentElement.style.setProperty("--song-font-size", currentSongFontSize + "px");
 
     const label = document.getElementById("editor-zoom-label");
     if (label) label.textContent = currentSongFontSize + "px";
+
+    if (currentPlayingSong && currentPlayingSong.title) {
+        currentPlayingSong.fontSize = currentSongFontSize;
+        const key = getSongKey(currentPlayingSong.title);
+        songZoomLevels[key] = currentSongFontSize;
+
+        if (autoSave) {
+            try {
+                localStorage.setItem("offline_cached_zooms", JSON.stringify(songZoomLevels));
+            } catch(e) {}
+
+            if (navigator.onLine && window.mobilePresenterFirebase) {
+                const db = window.mobilePresenterFirebase.db;
+                const ref = window.mobilePresenterFirebase.ref;
+                const set = window.mobilePresenterFirebase.set;
+                set(ref(db, 'lineUpMaker/songZoomLevels/' + key), currentSongFontSize).catch(err => {
+                    console.warn("Could not save zoom to cloud:", err);
+                });
+            }
+        }
+    }
 
     const editorView = document.getElementById("view-song-editor");
     if (editorView && editorView.classList.contains("active")) {
@@ -1138,64 +1144,79 @@ function applySongFontSize(size) {
 }
 
 function changeEditorZoom(amount) {
-    applySongFontSize(currentSongFontSize + amount);
+    applySongFontSize(currentSongFontSize + amount, true);
 }
 
-/* VIEW SWITCHING */
+/* 🎯 UNIFIED NAVIGATION ENGINE (Play -> Categories -> Setlist -> Home) */
+
+function renderNavState(state) {
+    // Itago muna lahat ng modals/drawers
+    document.querySelectorAll(".drawer-overlay").forEach(el => el.style.display = "none");
+
+    if (state.type === "view") {
+        document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
+        const target = document.getElementById("view-" + state.id);
+        if (target) target.classList.add("active");
+    } else if (state.type === "overlay") {
+        // Siguraduhing active pa rin ang nasa ilalim na view
+        const underlyingView = [...navStack].reverse().find(item => item.type === "view") || { type: "view", id: "home" };
+        document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
+        const viewEl = document.getElementById("view-" + underlyingView.id);
+        if (viewEl) viewEl.classList.add("active");
+
+        const overlay = document.getElementById(state.id);
+        if (overlay) overlay.style.display = "flex";
+    }
+}
+
+function pushNavState(type, id) {
+    const normalizedId = (type === "view" && id.startsWith("view-")) ? id.substring(5) : id;
+    const top = navStack[navStack.length - 1];
+
+    if (!top || top.type !== type || top.id !== normalizedId) {
+        navStack.push({ type, id: normalizedId });
+    }
+    renderNavState({ type, id: normalizedId });
+}
 
 function switchView(viewName, pushHistory = true) {
-    const normalizedName = viewName.startsWith("view-")
-        ? viewName.substring(5)
-        : viewName;
-
-    document.querySelectorAll(".view-section").forEach(el =>
-        el.classList.remove("active")
-    );
-
-    const target = document.getElementById("view-" + normalizedName);
-    if (target) {
-        target.classList.add("active");
-    } else {
-        return;
-    }
-
+    const normalizedName = viewName.startsWith("view-") ? viewName.substring(5) : viewName;
     if (pushHistory) {
-        const currentTop = viewHistory[viewHistory.length - 1];
-        if (currentTop !== normalizedName) {
-            viewHistory.push(normalizedName);
-        }
+        pushNavState("view", normalizedName);
+    } else {
+        renderNavState({ type: "view", id: normalizedName });
     }
 }
 
-/* BACK NAVIGATION */
+function openOverlayTracked(overlayId) {
+    pushNavState("overlay", overlayId);
+}
+
+function closeOverlayTracked(overlayId) {
+    const top = navStack[navStack.length - 1];
+    if (top && top.type === "overlay" && top.id === overlayId && navStack.length > 1) {
+        navStack.pop();
+        renderNavState(navStack[navStack.length - 1]);
+    } else {
+        const el = document.getElementById(overlayId);
+        if (el) el.style.display = "none";
+    }
+}
 
 function goBack(fromSystemBack = false) {
     closeLineColorTool();
 
-    // 🎯 FIX: Kung ang nakasalang sa screen ay Play View at may Categories modal, ibalik sa Category picker!
-    const playView = document.getElementById("view-play");
-    const categoryModal = document.getElementById("category-picker-modal");
-    
-    if (playView && playView.classList.contains("active") && categoryModal) {
-        switchView("home", false);
-        categoryModal.style.display = "flex";
+    if (navStack.length > 1) {
+        navStack.pop();
+        const prev = navStack[navStack.length - 1];
+        renderNavState(prev);
         return;
     }
 
-    if (viewHistory.length > 1) {
-        viewHistory.pop();
-        switchView(viewHistory[viewHistory.length - 1], false);
-        return;
-    }
-
-    const confirmed = window.confirm(
-        "Are you sure you want to leave BFBC LINE-UP?"
-    );
-
+    const confirmed = window.confirm("Are you sure you want to leave BFBC LINE-UP?");
     if (!confirmed) return;
 
     allowBrowserExit = true;
-
     if (fromSystemBack) {
         window.history.back();
     } else {
@@ -1221,30 +1242,22 @@ function installBrowserBackGuard() {
     });
 }
 
-/* DRAWERS AND MODALS */
-
 function openDrawer(drawerId) {
-    document.querySelectorAll(".drawer-overlay").forEach(el => el.style.display = "none");
-    const drawer = document.getElementById(drawerId);
-    if (drawer) drawer.style.display = "flex";
+    if (drawerId === "drawer-setlist") renderSetList();
+    openOverlayTracked(drawerId);
 }
 
 function closeDrawer(drawerId) {
-    const drawer = document.getElementById(drawerId);
-    if (drawer) drawer.style.display = "none";
+    closeOverlayTracked(drawerId);
 }
 
 function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = "none";
+    closeOverlayTracked(modalId);
 }
-
-/* ADD SONG TITLE */
 
 function openAddSongModal() {
     document.getElementById("new-song-title-input").value = "";
-    document.querySelectorAll(".drawer-overlay").forEach(el => el.style.display = "none");
-    document.getElementById("add-song-title-modal").style.display = "flex";
+    openOverlayTracked("add-song-title-modal");
 
     setTimeout(() => {
         document.getElementById("new-song-title-input").focus();
@@ -1282,19 +1295,21 @@ function confirmAddSongTitle() {
     currentLineColors = {};
     lineColorsDirty = false;
 
-    applySongFontSize(DEFAULT_SONG_FONT_SIZE);
+    applySongFontSize(DEFAULT_SONG_FONT_SIZE, false);
     document.getElementById("editor-textarea").value = "";
     renderColorOverlay();
 
     document.getElementById("song-editor-heading").textContent = "Add Song Lyrics";
     closeLineColorTool();
-    closeAddSongTitleModal();
+
+    // Palitan ang modal sa stack ng song editor view
+    if (navStack[navStack.length - 1]?.id === "add-song-title-modal") {
+        navStack.pop();
+    }
     switchView("view-song-editor");
 
     document.getElementById("editor-textarea").focus();
 }
-
-/* TRANSPOSE */
 
 function transposeGlobal(amount) {
     globalSemitones += amount;
@@ -1381,8 +1396,6 @@ function transposeSongContent(content, amount) {
         return transposeChordLine(line, amount);
     }).join("\n");
 }
-
-/* LINE COLOR TOOL */
 
 function toggleLineColorTool() {
     if (lineColorToolOpen) closeLineColorTool();
@@ -1517,7 +1530,6 @@ function initializeColorEditor() {
         renderColorOverlay();
     });
 
-    // 🎯 SMOOTH SCROLL SYNC
     editor.addEventListener("scroll", () => {
         if (!lineColorToolOpen) {
             overlay.scrollTop = editor.scrollTop;
@@ -1544,21 +1556,17 @@ function appendColoredText(parent, text, absoluteStart) {
     });
 }
 
-/* SONG SECTION JUMPER (STRICT NUMBERED 1-10 WITH LABELS) */
-
 function detectSongSections(content) {
     if (!content) return [];
     const sections = [];
-    
-    // Strict pattern para sa Intro, Verse, Pre-Chorus, Bridge, Instrumental, Outro na may numbers 1-10
-    const markerPattern = /^[ \t]*\[((?:Intro|Verse|Pre-?Chorus|Bridge|Instrumental|Outro)[ \t]+(?:[1-9]|10))\][ \t]*$/gim;
+    const markerPattern = /^[ \t]*\[((?:Intro|Verse|Pre-?Chorus|Chorus|Bridge|Instrumental|Outro)(?:[ \t]+[0-9]+)?)\][ \t]*$/gim;
     let match;
 
     while ((match = markerPattern.exec(content)) !== null) {
         sections.push({
             start: match.index,
             markerEnd: match.index + match[0].length,
-            label: match[1].trim().toUpperCase() // Sisiguraduhing lumalabas ang buong label (hal. VERSE 1)
+            label: match[1].trim().toUpperCase()
         });
     }
     return sections;
@@ -1588,19 +1596,17 @@ function jumpToSongSection(index, shouldBroadcast = true) {
     }
 }
 
-/* SONG DISPLAY */
-
 function renderSongContent(box, jumper, isPlayMode) {
     if (!box) return;
     box.innerHTML = "";
     if (jumper) jumper.innerHTML = "";
 
     if (!currentPlayingSong || !currentPlayingSong.content) {
-        box.innerHTML = "<div style='text-align: center; color: #888; padding: 20px;'>No song loaded.</div>";
+        box.innerHTML = "<div style='text-align: left; color: #888; padding: 20px;'>No song loaded.</div>";
         return;
     }
 
-    applySongFontSize(currentPlayingSong.fontSize || getSongFontSize(currentPlayingSong.title));
+    applySongFontSize(currentPlayingSong.fontSize || getSongFontSize(currentPlayingSong.title), false);
     const originalContent = currentPlayingSong.content;
     const content = isPlayMode ? transposeSongContent(originalContent, globalSemitones) : originalContent;
 
@@ -1648,14 +1654,11 @@ function renderEditScreen() {
     renderSongContent(document.getElementById("edit-lyrics-box"), null, false);
 }
 
-/* SET LIST (100% LOCAL STORAGE MANAGEMENT) */
-
 function renderSetList() {
     const container = document.getElementById("setlist-container");
     if (!container) return;
     container.innerHTML = "";
 
-    // Read setlists strictly from Local Storage
     try {
         setLists = JSON.parse(localStorage.getItem("local_setlists") || "[]");
     } catch (e) { setLists = []; }
@@ -1694,8 +1697,7 @@ function renderSetList() {
         load.onclick = () => {
             pendingSetListIndex = displayIndex;
             document.getElementById("confirm-lineup-details").textContent = "Worship Leader: " + (sl.worshipLeader || "Unnamed");
-            closeDrawer("drawer-setlist");
-            document.getElementById("confirm-lineup-modal").style.display = "flex";
+            openOverlayTracked("confirm-lineup-modal");
         };
 
         const showBtn = document.createElement("button");
@@ -1710,7 +1712,6 @@ function renderSetList() {
         del.className = "btn btn-sm btn-danger";
         del.textContent = "Delete";
         del.onclick = () => {
-            // SAFE DELETION: Deletes local setlist record ONLY (Firebase songs untouched)
             if (confirm(`Delete local line-up "${sl.worshipLeader}"? (Songs in Firebase will NOT be deleted)`)) {
                 setLists.splice(displayIndex, 1);
                 localStorage.setItem("local_setlists", JSON.stringify(setLists));
@@ -1726,7 +1727,6 @@ function renderSetList() {
 }
 
 function openShowSetListDrawer(sl) {
-    closeDrawer("drawer-setlist");
     document.getElementById("show-setlist-title").textContent = "Set List: " + (sl.worshipLeader || "Unnamed");
 
     const contentBox = document.getElementById("show-setlist-content");
@@ -1743,10 +1743,8 @@ function openShowSetListDrawer(sl) {
         contentBox.innerHTML = '<span class="empty-message">No songs in this line-up.</span>';
     }
 
-    openDrawer("drawer-show-setlist");
+    openOverlayTracked("drawer-show-setlist");
 }
-
-/* CONFIRM LOAD SET LIST (AUTO IMPORTS SONGS FROM MASTER DATABASE TO LOCAL) */
 
 function confirmLoadSetList() {
     if (pendingSetListIndex === null) return;
@@ -1761,7 +1759,6 @@ function confirmLoadSetList() {
 
     activeLineUp = { ...sl.lineup };
 
-    // AUTO-IMPORT: Cache all songs assigned to this lineup into local storage
     try {
         const cachedSongs = JSON.parse(localStorage.getItem("offline_cached_songs") || "{}");
         for (const [cat, songTitle] of Object.entries(activeLineUp)) {
@@ -1770,13 +1767,16 @@ function confirmLoadSetList() {
             }
         }
         localStorage.setItem("offline_cached_songs", JSON.stringify(cachedSongs));
-        console.info("Lineup songs auto-imported to local cache.");
     } catch (e) {}
 
-    closeModal("confirm-lineup-modal");
+    // Alisin ang confirm modal sa stack para pag nag-Back mula sa Categories ay diretso sa Set List
+    if (navStack[navStack.length - 1]?.id === "confirm-lineup-modal") {
+        navStack.pop();
+    }
     pendingSetListIndex = null;
 
     if (!Object.keys(activeLineUp).length) {
+        renderNavState(navStack[navStack.length - 1]);
         return alert("This set list has no assigned songs.");
     }
 
@@ -1786,10 +1786,7 @@ function confirmLoadSetList() {
 function backToSetList() {
     closeModal("confirm-lineup-modal");
     pendingSetListIndex = null;
-    openDrawer("drawer-setlist");
 }
-
-/* PLAY LOADED LINE-UP */
 
 let playLineUpEntries = [];
 let currentLineUpIndex = 0;
@@ -1800,7 +1797,7 @@ function playLineUp() {
     if (!playLineUpEntries.length) return;
 
     renderCategoryPicker();
-    document.getElementById("category-picker-modal").style.display = "flex";
+    openOverlayTracked("category-picker-modal");
 }
 
 function renderCategoryPicker() {
@@ -1835,7 +1832,7 @@ function renderCategoryPicker() {
             button.onclick = () => {
                 const selectedIndex = playLineUpEntries.findIndex(entry => entry[0] === category);
                 if (selectedIndex < 0) return;
-                closeModal("category-picker-modal");
+                // Huwag i-pop ang category-picker-modal sa navStack; ipatong ang Play view sa ibabaw nito!
                 playLineUpSongAt(selectedIndex);
             };
         }
@@ -1852,8 +1849,6 @@ function playLineUpSongAt(index) {
     playSong(title, true);
     document.getElementById("play-song-title").textContent = category + " — " + title;
 }
-
-/* SONG DATABASE (PULLED FROM FIREBASE CLOUD) */
 
 function renderSongsDatabase() {
     const container = document.getElementById("songs-db-container");
@@ -1880,7 +1875,6 @@ function renderSongsDatabase() {
         name.textContent = "🎵 " + title;
         name.onclick = () => {
             playSong(title, true);
-            closeDrawer("drawer-songs");
         };
 
         const edit = document.createElement("button");
@@ -1888,7 +1882,6 @@ function renderSongsDatabase() {
         edit.textContent = "View";
         edit.onclick = () => {
             openEditSongDirect(title);
-            closeDrawer("drawer-songs");
         };
 
         row.append(name, edit);
@@ -1911,7 +1904,7 @@ function openEditSongDirect(title) {
     lineColorsDirty = false;
 
     closeLineColorTool();
-    applySongFontSize(currentPlayingSong.fontSize);
+    applySongFontSize(currentPlayingSong.fontSize, false);
     document.getElementById("edit-song-title-label").textContent = title;
     renderEditScreen();
     switchView("view-edit");
@@ -1923,7 +1916,7 @@ function openFullEditor() {
     isNewSongDraft = false;
     newSongTitle = "";
 
-    applySongFontSize(getSongFontSize(currentPlayingSong.title));
+    applySongFontSize(getSongFontSize(currentPlayingSong.title), false);
     document.getElementById("song-editor-heading").textContent = "Edit Song Lyrics";
     document.getElementById("editor-textarea").value = currentPlayingSong.content || "";
     renderColorOverlay();
@@ -1934,8 +1927,6 @@ function openFullEditor() {
 
 function openPlayToEdit() { openFullEditor(); }
 
-/* SAVE SONG (SAVED DIRECTLY TO FIREBASE MASTER DATABASE) */
-
 async function saveSongFromEditor() {
     const editor = document.getElementById("editor-textarea");
     const content = editor.value.trim();
@@ -1944,7 +1935,6 @@ async function saveSongFromEditor() {
     if (!title) return alert("Missing song title.");
     if (!content) return alert("Please enter song lyrics and chords.");
 
-    // Require passkey only when updating existing songs in Firebase
     if (!isNewSongDraft) {
         if (!checkAdminPasskey("Save Master Song Edits to Firebase")) return;
     }
@@ -1954,23 +1944,33 @@ async function saveSongFromEditor() {
     const set = window.mobilePresenterFirebase.set;
 
     try {
+        const key = getSongKey(title);
         await set(ref(db, 'lineUpMaker/songsDatabase/' + title), content);
+
+        songZoomLevels[key] = currentSongFontSize;
+        await set(ref(db, 'lineUpMaker/songZoomLevels/' + key), currentSongFontSize);
+
         if (lineColorsDirty) {
-            const key = getSongKey(title);
             songLineColors[key] = currentLineColors;
             await set(ref(db, 'lineUpMaker/songLineColors/' + key), currentLineColors);
         }
 
         songsDatabase[title] = content;
+        try {
+            localStorage.setItem("offline_cached_zooms", JSON.stringify(songZoomLevels));
+        } catch(e) {}
+
         alert("Song saved to Firebase Cloud Master Database!");
+        // Alisin ang editor sa stack para pag nag-Back mula sa Play ay bumalik sa pinanggalingan
+        if (navStack[navStack.length - 1]?.id === "song-editor") {
+            navStack.pop();
+        }
         playSong(title, true);
     } catch (err) {
         console.error(err);
         alert("Failed to save song to Firebase: " + err.message);
     }
 }
-
-/* DELETE MASTER SONG FROM FIREBASE (REQUIRES PASSKEY) */
 
 async function deleteCurrentSong() {
     const title = currentPlayingSong.title;
@@ -1987,7 +1987,7 @@ async function deleteCurrentSong() {
         await remove(ref(db, 'lineUpMaker/songsDatabase/' + title));
         delete songsDatabase[title];
         alert("Song deleted from Firebase Master Database.");
-        switchView("home");
+        goBack();
         renderSongsDatabase();
         renderNewLineUpForm();
     } catch (err) {
@@ -1995,8 +1995,6 @@ async function deleteCurrentSong() {
         alert("Failed to delete song: " + err.message);
     }
 }
-
-/* NEW LINE-UP FORM (SAVED ONLY TO LOCAL STORAGE) */
 
 function renderNewLineUpForm() {
     const container = document.getElementById("new-lineup-selectors");
@@ -2060,7 +2058,6 @@ function saveNewLineUpFromForm() {
         createdAt: Date.now()
     };
 
-    // 🔒 SAVE LINE-UP TO LOCAL STORAGE ONLY
     try {
         let localSetLists = JSON.parse(localStorage.getItem("local_setlists") || "[]");
         localSetLists.push(newList);
@@ -2073,16 +2070,15 @@ function saveNewLineUpFromForm() {
 
     alert("Line-up saved to Device Storage!");
     wlInput.value = "";
-    closeDrawer("drawer-newlineup");
+    if (navStack[navStack.length - 1]?.id === "drawer-newlineup") {
+        navStack.pop();
+    }
     openDrawer("drawer-setlist");
 }
-
-/* PLAY SONG */
 
 function playSong(title, shouldBroadcast = true) {
     let songContent = songsDatabase[title];
 
-    // Fallback to local cache if offline
     if (!songContent) {
         try {
             const cachedSongs = JSON.parse(localStorage.getItem("offline_cached_songs") || "{}");
@@ -2123,8 +2119,6 @@ function handleIncomingLiveSync(liveData) {
     }
 }
 
-/* QR */
-
 function openQRModal() {
     const baseUrl = window.location.origin + window.location.pathname;
     const viewerUrl = baseUrl + "?view=readonly";
@@ -2136,13 +2130,11 @@ function openQRModal() {
     if (typeof QRCode !== "undefined") {
         new QRCode(qr, { text: viewerUrl, width: 150, height: 150 });
     }
-    document.getElementById("qr-modal").style.display = "flex";
+    openOverlayTracked("qr-modal");
 }
 
-/* CATEGORIES */
-
 function openAddCategoryModal() {
-    document.getElementById("add-cat-modal").style.display = "flex";
+    openOverlayTracked("add-cat-modal");
 }
 
 async function confirmAddCategory() {
@@ -2167,13 +2159,13 @@ async function confirmAddCategory() {
     }
 }
 
-/* INITIALIZE */
-
 document.addEventListener("DOMContentLoaded", () => {
-    // Read local cache fallback first
     try {
         const localSongs = JSON.parse(localStorage.getItem("offline_cached_songs") || "{}");
         if (Object.keys(localSongs).length > 0) songsDatabase = localSongs;
+
+        const localZooms = JSON.parse(localStorage.getItem("offline_cached_zooms") || "{}");
+        if (Object.keys(localZooms).length > 0) songZoomLevels = localZooms;
     } catch(e) {}
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -2189,6 +2181,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const brandTitle = document.querySelector(".brand-title");
         if (brandTitle) brandTitle.textContent = "BFBC LINE-UP (Viewer)";
 
+        navStack = [{ type: "view", id: "play" }];
         switchView("play", false);
     }
 
@@ -2196,7 +2189,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSetList();
     renderSongsDatabase();
 
-    applySongFontSize(DEFAULT_SONG_FONT_SIZE);
+    applySongFontSize(DEFAULT_SONG_FONT_SIZE, false);
     initializeColorEditor();
     installBrowserBackGuard();
 
@@ -2214,7 +2207,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.key === "Enter") confirmAddSongTitle();
     });
 
-    console.info("BFBC LINE-UP loaded. Master Songs: Firebase Cloud | Line-ups: Local Device Storage.");
+    console.info("BFBC LINE-UP loaded. Master Songs & Zooms: Firebase Cloud | Line-ups: Local Device Storage.");
 });
 </script>
 
