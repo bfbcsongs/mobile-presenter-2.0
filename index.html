@@ -609,7 +609,7 @@ header {
     background: rgba(250, 204, 21, 0.28);
 }
 
-/* CATEGORY PICKER */
+/* CATEGORY PICKER & SONG SELECTOR BUTTON */
 
 .category-picker-list {
     display: flex;
@@ -650,6 +650,23 @@ header {
     font-size: 0.72rem;
     text-align: right;
     overflow-wrap: anywhere;
+}
+
+.modal-song-choice {
+    width: 100%;
+    text-align: left;
+    background: #0f172a;
+    color: #fff;
+    border: 1px solid #1e293b;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.modal-song-choice:active {
+    background: #1e293b;
+    border-color: var(--section);
 }
 
 @media(max-width:480px) {
@@ -854,7 +871,7 @@ header {
         <h3 style="color:var(--highlight);font-size:0.95rem;">Create New Line-up</h3>
         <input type="text" id="new-wl-name" placeholder="Worship Leader Name..."
             style="background:#0f172a;border:1px solid #334155;color:#fff;padding:8px;border-radius:6px;">
-        <div id="new-lineup-selectors" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+        <div id="new-lineup-selectors" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
         <div style="display:flex;gap:6px;">
             <button class="btn btn-sm" onclick="openAddCategoryModal()">+ Category</button>
             <button class="btn btn-success" style="flex:1;" onclick="saveNewLineUpFromForm()">Save Line-up</button>
@@ -863,10 +880,13 @@ header {
     </div>
 </div>
 
+<!-- SEARCHABLE SONG PICKER MODAL FOR NEW LINE-UP -->
 <div id="select-song-modal" class="drawer-overlay" onclick="closeModal('select-song-modal')">
     <div class="drawer-panel" onclick="event.stopPropagation()">
         <h3 style="font-size:0.95rem;">Select Song for <span id="select-modal-cat" style="color:var(--section);"></span></h3>
-        <div id="modal-songs-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+        <input type="text" id="modal-song-search" placeholder="Search song..." oninput="renderSelectSongModalList()" autocomplete="off"
+            style="background:#0f172a;border:1px solid #334155;color:#fff;padding:8px;border-radius:6px;width:100%;">
+        <div id="modal-songs-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;"></div>
         <button class="btn" onclick="closeModal('select-song-modal')">Cancel</button>
     </div>
 </div>
@@ -929,6 +949,10 @@ let songsDatabase = {};
 let songKeys = {};
 let setLists = [];
 
+/* TRACKS SELECTED SONGS IN "CREATE NEW LINE-UP" */
+let draftNewLineUp = {};
+let selectingCategoryName = null;
+
 /* ZOOM & CLOUD SYNC */
 
 let songZoomLevels = {};
@@ -942,7 +966,7 @@ let globalSemitones = 0;
 let activeEditingKey = null;
 let currentPlayingSong = { title: "", content: "", fontSize: 16 };
 
-/* UNIFIED NAVIGATION STACK (Tracks both views & overlays in order) */
+/* UNIFIED NAVIGATION STACK (Play -> Categories -> Line-ups -> Home) */
 let navStack = [{ type: "view", id: "home" }];
 let pendingSetListIndex = null;
 
@@ -1150,7 +1174,6 @@ function changeEditorZoom(amount) {
 /* 🎯 UNIFIED NAVIGATION ENGINE (Play -> Categories -> Setlist -> Home) */
 
 function renderNavState(state) {
-    // Itago muna lahat ng modals/drawers
     document.querySelectorAll(".drawer-overlay").forEach(el => el.style.display = "none");
 
     if (state.type === "view") {
@@ -1158,7 +1181,6 @@ function renderNavState(state) {
         const target = document.getElementById("view-" + state.id);
         if (target) target.classList.add("active");
     } else if (state.type === "overlay") {
-        // Siguraduhing active pa rin ang nasa ilalim na view
         const underlyingView = [...navStack].reverse().find(item => item.type === "view") || { type: "view", id: "home" };
         document.querySelectorAll(".view-section").forEach(el => el.classList.remove("active"));
         const viewEl = document.getElementById("view-" + underlyingView.id);
@@ -1244,6 +1266,7 @@ function installBrowserBackGuard() {
 
 function openDrawer(drawerId) {
     if (drawerId === "drawer-setlist") renderSetList();
+    if (drawerId === "drawer-newlineup") renderNewLineUpForm();
     openOverlayTracked(drawerId);
 }
 
@@ -1302,7 +1325,6 @@ function confirmAddSongTitle() {
     document.getElementById("song-editor-heading").textContent = "Add Song Lyrics";
     closeLineColorTool();
 
-    // Palitan ang modal sa stack ng song editor view
     if (navStack[navStack.length - 1]?.id === "add-song-title-modal") {
         navStack.pop();
     }
@@ -1769,18 +1791,28 @@ function confirmLoadSetList() {
         localStorage.setItem("offline_cached_songs", JSON.stringify(cachedSongs));
     } catch (e) {}
 
-    // Alisin ang confirm modal sa stack para pag nag-Back mula sa Categories ay diretso sa Set List
-    if (navStack[navStack.length - 1]?.id === "confirm-lineup-modal") {
-        navStack.pop();
-    }
     pendingSetListIndex = null;
 
     if (!Object.keys(activeLineUp).length) {
+        navStack = [
+            { type: "view", id: "home" },
+            { type: "overlay", id: "drawer-setlist" }
+        ];
         renderNavState(navStack[navStack.length - 1]);
         return alert("This set list has no assigned songs.");
     }
 
-    playLineUp();
+    playLineUpEntries = Object.entries(activeLineUp);
+    currentLineUpIndex = 0;
+    renderCategoryPicker();
+
+    // Eksaktong stack: Home -> Line-ups -> Categories
+    navStack = [
+        { type: "view", id: "home" },
+        { type: "overlay", id: "drawer-setlist" },
+        { type: "overlay", id: "category-picker-modal" }
+    ];
+    renderNavState(navStack[navStack.length - 1]);
 }
 
 function backToSetList() {
@@ -1832,7 +1864,6 @@ function renderCategoryPicker() {
             button.onclick = () => {
                 const selectedIndex = playLineUpEntries.findIndex(entry => entry[0] === category);
                 if (selectedIndex < 0) return;
-                // Huwag i-pop ang category-picker-modal sa navStack; ipatong ang Play view sa ibabaw nito!
                 playLineUpSongAt(selectedIndex);
             };
         }
@@ -1848,6 +1879,15 @@ function playLineUpSongAt(index) {
 
     playSong(title, true);
     document.getElementById("play-song-title").textContent = category + " — " + title;
+
+    // Eksaktong stack: Home -> Line-ups -> Categories -> Play
+    navStack = [
+        { type: "view", id: "home" },
+        { type: "overlay", id: "drawer-setlist" },
+        { type: "overlay", id: "category-picker-modal" },
+        { type: "view", id: "play" }
+    ];
+    renderNavState(navStack[navStack.length - 1]);
 }
 
 function renderSongsDatabase() {
@@ -1961,7 +2001,6 @@ async function saveSongFromEditor() {
         } catch(e) {}
 
         alert("Song saved to Firebase Cloud Master Database!");
-        // Alisin ang editor sa stack para pag nag-Back mula sa Play ay bumalik sa pinanggalingan
         if (navStack[navStack.length - 1]?.id === "song-editor") {
             navStack.pop();
         }
@@ -1996,37 +2035,110 @@ async function deleteCurrentSong() {
     }
 }
 
+/* 🎯 NEW LINE-UP FORM WITH SEARCHABLE SONG MODAL */
+
 function renderNewLineUpForm() {
     const container = document.getElementById("new-lineup-selectors");
     if (!container) return;
     container.innerHTML = "";
 
-    categories.forEach((cat, index) => {
-        const div = document.createElement("div");
-        div.style.cssText = "display:flex;justify-content:space-between;align-items:center;background:#0f172a;padding:6px 10px;border-radius:6px;gap:6px;";
+    categories.forEach((cat) => {
+        const assignedSong = draftNewLineUp[cat] || "";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "category-picker-item";
+        btn.style.padding = "10px 12px";
 
         const label = document.createElement("span");
-        label.style.cssText = "font-size:0.8rem;color:var(--section);font-weight:bold;";
-        label.textContent = "♦️ " + cat + ":";
+        label.className = "category-picker-name";
+        label.textContent = "♦️ " + cat;
 
-        const select = document.createElement("select");
-        select.id = "select-new-" + index;
-        select.style.cssText = "background:#1e293b;color:#fff;border:1px solid #334155;padding:4px;border-radius:4px;font-size:0.8rem;width:60%;";
+        const songSpan = document.createElement("span");
+        songSpan.className = "category-picker-song";
+        if (assignedSong) {
+            songSpan.style.color = "#4ade80";
+            songSpan.style.fontWeight = "600";
+            songSpan.textContent = "🎵 " + assignedSong;
+        } else {
+            songSpan.textContent = "-- Tap to select song --";
+        }
 
-        const empty = document.createElement("option");
-        empty.value = "";
-        empty.textContent = "-- Select Song --";
-        select.appendChild(empty);
+        btn.append(label, songSpan);
+        btn.onclick = () => openSelectSongForCategory(cat);
+        container.appendChild(btn);
+    });
+}
 
-        Object.keys(songsDatabase).sort().forEach(title => {
-            const option = document.createElement("option");
-            option.value = title;
-            option.textContent = title;
-            select.appendChild(option);
-        });
+function openSelectSongForCategory(catName) {
+    selectingCategoryName = catName;
+    document.getElementById("select-modal-cat").textContent = catName;
 
-        div.append(label, select);
-        container.appendChild(div);
+    const searchInput = document.getElementById("modal-song-search");
+    if (searchInput) searchInput.value = "";
+
+    renderSelectSongModalList();
+    openOverlayTracked("select-song-modal");
+
+    setTimeout(() => {
+        if (searchInput) searchInput.focus();
+    }, 100);
+}
+
+function renderSelectSongModalList() {
+    const listContainer = document.getElementById("modal-songs-list");
+    const searchInput = document.getElementById("modal-song-search");
+    if (!listContainer) return;
+
+    listContainer.innerHTML = "";
+    const query = (searchInput ? searchInput.value : "").toLowerCase().trim();
+
+    // Option para alisin/i-clear ang nakalagay na kanta sa category
+    if (selectingCategoryName && draftNewLineUp[selectingCategoryName] && !query) {
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "modal-song-choice";
+        clearBtn.style.color = "#f87171";
+        clearBtn.style.borderColor = "#7f1d1d";
+        clearBtn.textContent = "✖ Clear selected song (" + draftNewLineUp[selectingCategoryName] + ")";
+        clearBtn.onclick = () => {
+            delete draftNewLineUp[selectingCategoryName];
+            selectingCategoryName = null;
+            closeModal("select-song-modal");
+            renderNewLineUpForm();
+        };
+        listContainer.appendChild(clearBtn);
+    }
+
+    const titles = Object.keys(songsDatabase)
+        .filter(title => title.toLowerCase().includes(query))
+        .sort();
+
+    if (!titles.length) {
+        listContainer.innerHTML += '<span class="empty-message">No matching songs found.</span>';
+        return;
+    }
+
+    titles.forEach(title => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "modal-song-choice";
+        item.textContent = "🎵 " + title;
+
+        if (selectingCategoryName && draftNewLineUp[selectingCategoryName] === title) {
+            item.style.borderColor = "#4ade80";
+            item.style.color = "#4ade80";
+        }
+
+        item.onclick = () => {
+            if (selectingCategoryName) {
+                draftNewLineUp[selectingCategoryName] = title;
+            }
+            selectingCategoryName = null;
+            closeModal("select-song-modal");
+            renderNewLineUpForm();
+        };
+        listContainer.appendChild(item);
     });
 }
 
@@ -2041,10 +2153,9 @@ function saveNewLineUpFromForm() {
     }
 
     const lineup = {};
-    categories.forEach((cat, index) => {
-        const select = document.getElementById("select-new-" + index);
-        if (select && select.value) {
-            lineup[cat] = select.value;
+    categories.forEach(cat => {
+        if (draftNewLineUp[cat]) {
+            lineup[cat] = draftNewLineUp[cat];
         }
     });
 
@@ -2070,6 +2181,9 @@ function saveNewLineUpFromForm() {
 
     alert("Line-up saved to Device Storage!");
     wlInput.value = "";
+    draftNewLineUp = {};
+    renderNewLineUpForm();
+
     if (navStack[navStack.length - 1]?.id === "drawer-newlineup") {
         navStack.pop();
     }
